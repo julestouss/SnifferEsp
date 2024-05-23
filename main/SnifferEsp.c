@@ -3,16 +3,21 @@
 #include <esp_log.h>
 #include <esp_check.h>
 #include <nvs_flash.h> // to flash the memory (Non volatile sorage = NVS)
-
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "freertos/event_groups.h"
 
 
 #define WIFI_FAILURE 1<<1
 #define WIFI_SUCCESS 1<<0
 
 #define TAG "Wifi :"
+
+#define ESP_WIFI_SSID "test_esp"
+#define ESP_WIFI_PASS "niquetamere"
+#define ESP_WIFI_CHANNEL 1
+#define ESP_WIFI_MAX_CONN 10
 
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data){
@@ -52,7 +57,15 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
     if( event_base == WIFI_EVENT && event_id == ESP_ERR_WIFI_PASSWORD ) printf("Bad Password");
 
+    if (event_id == WIFI_EVENT_AP_STACONNECTED) {
+        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
+        ESP_LOGI(TAG, "station joined");
+    } // here we handle when the AP is up and then we print the mac address in the log 
+    else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
+       wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
+       ESP_LOGI(TAG, "station leaved"); //here we print in the log if the ap is disconnected
 
+   }
 }
 
 esp_err_t conf_wifi (){
@@ -61,6 +74,8 @@ esp_err_t conf_wifi (){
     ESP_ERROR_CHECK(esp_event_loop_create_default()); // create the event that will be used by wifi to handle the events
     // create wifi sta in the wifi drivre
     esp_netif_create_default_wifi_sta();
+    //create wifi ap in the wifi drive
+    esp_netif_create_default_wifi_ap();
     // define the wifi conf with default conf 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
@@ -88,26 +103,39 @@ esp_err_t conf_wifi (){
 
     // define and set the wifi conf
 
-    wifi_config_t wifi_config_sta = {
+    wifi_config_t sta_wifi_config = {
         // use to connect to a station
         .sta ={
             .ssid = "Altice_F524",
-        .password = "tscp1065",
-	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .password = "tscp1065",
+	        .threshold.authmode = WIFI_AUTH_WPA2_PSK,
             .pmf_cfg = {
                 .capable = true,
                 .required = false
                 },
+        },
+    };
+    //use to setup the AP
+    wifi_config_t ap_wifi_config = {   
+        .ap = {
+                .ssid = ESP_WIFI_SSID,
+                .ssid_len = strlen(ESP_WIFI_SSID),
+                .password = ESP_WIFI_PASS,
+                .channel = ESP_WIFI_CHANNEL,
+                .max_connection = ESP_WIFI_MAX_CONN,
+                .authmode = WIFI_AUTH_WPA2_PSK,
             },
+
     };
 
 
     //define the wifi mod
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     // set sta conf
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config_sta));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_wifi_config));
 
-    // set ap conf (for later)
+    // set ap conf 
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_wifi_config));
 
     // start wifi
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -137,10 +165,6 @@ void app_main(void) {
         ESP_LOGI("WIFI ", "Failed to connect to the sta, dying ....");
         return;
 
-    } 
-  //  while(true){
-  //      printf("tout va bien \n");
-  //      vTaskDelay(500);
-  //  }
+    }
 
 }
