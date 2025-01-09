@@ -15,7 +15,7 @@
 #define TAG "Wifi :"
 
 #define ESP_WIFI_SSID "test_esp"
-#define ESP_WIFI_PASS "niquetamere"
+#define ESP_WIFI_PASS "motdepass"
 #define ESP_WIFI_CHANNEL 1
 #define ESP_WIFI_MAX_CONN 10
 
